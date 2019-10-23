@@ -28,6 +28,7 @@ show = []
 mask_list = []
 fgbg = cv2.createBackgroundSubtractorMOG2() 
 
+
 #Loop Starts
 
 while(cap.isOpened()):
@@ -37,7 +38,7 @@ while(cap.isOpened()):
     #depth_frame = frame[:, : ,1]
     GBgray_frame = cv2.GaussianBlur(gray_frame, (15, 15), 0)
     frame_list.append(GBgray_frame)
-    if len(frame_list)>5:
+    if len(frame_list)>10:
         i = 0
         union_difference = np.zeros([height,width], dtype = int)
 
@@ -49,7 +50,7 @@ while(cap.isOpened()):
             kernel = np.ones((15,15), np.uint8)
             #difference = cv2.dilate(difference, kernel, iterations=1) 
             difference = cv2.erode(difference, kernel, iterations=1)
-            kernel = np.ones((5, 5), np.uint8) 
+            kernel = np.ones((15, 15), np.uint8) 
             difference = cv2.dilate(difference, kernel, iterations=1) 
             difference_list.append(difference)
             union_difference = np.bitwise_or((union_difference),(difference))
@@ -58,51 +59,69 @@ while(cap.isOpened()):
         frame_list.pop(0)
 
 
-        # binary = union_difference
-        # nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(binary)#connectivity=4)
-        # sizes = stats[:, -1]
-        # # # mask = np.array(nb_components, dtype=np.uint8)
-        # mask = np.array(output, dtype=np.uint8)
-        # # print(output.shape)
-        # max_label = 1
-        # max_size = sizes[1]
-        # for i in range(2, nb_components):
-        #     if sizes[i] > max_size:
-        #         max_label = i
-        #         max_size = sizes[i]
-        # #print("maximum level---------",max_label)
-        # img2 = np.zeros(output.shape)
-        # img2[output == max_label] = 255
+        binary = union_difference
+        nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(binary)#connectivity=4)
+        sizes = stats[:, -1]
+        # # mask = np.array(nb_components, dtype=np.uint8)
+        mask = np.array(output, dtype=np.uint8)
+        # print(output.shape)
+        max_label = 1
+        try:
+            max_size = sizes[1]
+        except:
+            print("no movement detected")
+        for i in range(2, nb_components):
+            try:
+                if sizes[i] > max_size:
+                    max_label = i
+                    max_size = sizes[i]
+            except:
+                print("no movement detected")
+        #print("maximum level---------",max_label)
+        img2 = np.zeros(output.shape)
+        img2[output == max_label] = 255
         
         # print(centroids[max_label-1])
         # a, b= centroids[max_label-1]
         # a = np.uint8(a)
         # b = np.uint8(b)
-        # cv2.imshow("Biggest component", img2)
+        cv2.imshow("Biggest component", img2)
         # frame[a:a+5, b:b+5] = [0, 0, 255] 
         # cv2.imshow("frame3", frame)
-        #plt.hist(img2.ravel(),256,[0,256]); plt.show()
+        # plt.hist(img2.ravel(),256,[0,256]); plt.show()
 
 
-        _, labels = cv2.connectedComponents(union_difference)
-        print(labels.shape)
-        mask = np.array(labels, dtype=np.uint8)
-        mask[labels == 1] = 255
-        print(mask)
-        mask_list.append(mask)
-        _, img2 = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY )
+        # _, labels = cv2.connectedComponents(union_difference)
+        # print(labels.shape)
+        # mask = np.array(labels, dtype=np.uint8)
+        # mask[labels == 1] = 255
+        # print(mask)
+        # mask_list.append(mask)
+        # _, img2 = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY )
         i = 0
-        cv2.imshow("frame2", difference_list[3])
+        # cv2.imshow("frame2", difference_list[3])
         #print(max(difference_list[0]), max(img2))
         while(i<len(frame_list)):
-            intersection_list.append(np.bitwise_and(img2,difference_list[i]))
+            intersection_list.append(np.bitwise_and(img2.astype(int),difference_list[i].astype(int)))
+            # print(str(type(img2))+" and "+str(type(difference_list[i])))
             i += 1 
-        cv2.imshow("intersection2", intersection_list[0])
-        from scipy import ndimage
-        [x, y] = ndimage.measurements.center_of_mass(intersection_list[4])
-        x = np.uint8(x)
-        y = np.uint8(y)
-        frame[x:x+5, y:y+5] = [0, 0, 255]
+            print(i)
+        #print(len(intersection_list))
+        try:
+            contours,hierarchy = cv2.findContours(np.uint8(intersection_list[9]), 1, 2)
+            cnt = contours[0]
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+            frame = cv2.drawContours(frame,[box],0,(0,0,255),2)
+        except :
+            print("no conture found")
+        cv2.imshow("intersection2", np.uint8(intersection_list[1]))
+        # from scipy import ndimage
+        # [x, y] = ndimage.measurements.center_of_mass(intersection_list[4])
+        # x = np.uint8(x)
+        # y = np.uint8(y)
+        # frame[x:x+5, y:y+5] = [0, 0, 255]
         intersection_list.clear()
         difference_list.clear()
     
